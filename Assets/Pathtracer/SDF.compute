@@ -16,6 +16,7 @@ float2 CameraOrigin;
 float2 CameraOffset;
 
 // Adapted from: http://www.iquilezles.org/www/articles/distfunctions2d/distfunctions2d.htm
+//this seems to be a family of functions that allow for easy 
 float sdCircle(float2 p, float r)
 {
 	return length(p) - r;
@@ -43,8 +44,8 @@ RWTexture2D<float4> Diffuse;
 [numthreads(8,8,1)]
 void CSMain (uint3 id : SV_DispatchThreadID)
 {
-	float2 p = CameraOrigin + (float2(id.xy) * CameraOffset);
-
+	float2 p = CameraOrigin + (float2(id.xy) * CameraOffset); //so now p is the world space position of this point of the texture. 
+	//this method is a tad flawed tho. the diagonal units per pixel isnt the same as the other angles. 
 	float4 diffuse = float4(0, 0, 0, 0);
 	float d = 10000.0;
 	float d1 = 0;
@@ -52,10 +53,17 @@ void CSMain (uint3 id : SV_DispatchThreadID)
 		d1 = sdfBox(p, Objects[i]);
 		if (d1 < d) {
 			diffuse = Objects[i].diffuse;
+			//diffuse.a = 0;
 			d = d1;
 		}
+		// if(d1 < 0) 
+		// {
+		// 	diffuse.a= 1;
+		// }
 	}
-
+	//diffuse will be the color of the closest object to the point given the sdf function
+	//d is the distance to it. 
+	//therefore sdf will be a texture map corresponding to the closest point to a colored primitive , and diffuse will be the color of it.
 	SDF[id.xy] = d;
 	Diffuse[id.xy] = diffuse;
 }

@@ -28,9 +28,11 @@ public class BlurCore : MonoBehaviour
 
     protected int texWidthVisibleSize, texHeightVisibleSize = 0;
     protected Camera thisCamera;
-
+    [SerializeField]
     protected RenderTexture verBlurOutput = null;
+    [SerializeField]
     protected RenderTexture horBlurOutput = null;
+    [SerializeField]
     protected RenderTexture tempSource = null;
 
     protected private int blurHorID;
@@ -106,7 +108,7 @@ public class BlurCore : MonoBehaviour
         blurShader.SetTexture(blurHorID, "source", tempSource);
         blurShader.SetTexture(blurHorID, "horBlurOutput", horBlurOutput);
 
-        blurShader.SetTexture(blurVerID, "horBlurOutput", horBlurOutput);
+        blurShader.SetTexture(blurVerID, "horBlurOutput", horBlurOutput); //maybe this should be source?
         blurShader.SetTexture(blurVerID, "verBlurOutput", verBlurOutput);
     }
     protected void SetRadius()

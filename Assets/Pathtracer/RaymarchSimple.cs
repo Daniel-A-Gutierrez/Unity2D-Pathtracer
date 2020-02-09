@@ -42,7 +42,7 @@ public class RaymarchSimple : MonoBehaviour
     public float bounceBias = 0.1f;
 
     Texture2D randomTex;
-    Camera camera;
+    new Camera camera;
 
     ComputeBuffer objBuffer;
     Box[] boxes;
@@ -61,6 +61,14 @@ public class RaymarchSimple : MonoBehaviour
 
     GaussianBlurStatic blur;
 
+
+    //this seems to prepare render textures and other shader properties
+    //and pass the constructed data into the shaders, as well as render textures for output.
+    //the shaders it sets up are the 
+    //SDF shader - gets diffuse map , SDF , and the objects (all the sd boxes)
+    //tracer - gets diffuse map twice? , SDF twice, and width and height of it , tracerOutput as result, shadowmap twice as result and shadowmap, 
+    //BLIT material from blit shader
+    //object buffer gets all the positions of the boxes and such.
     void Start()
     {
         blur = GetComponent<GaussianBlurStatic>();
@@ -133,12 +141,13 @@ public class RaymarchSimple : MonoBehaviour
 
     void Update()
     {
-        Vector3 rorg = camera.ScreenPointToRay(Vector3.zero).origin;
-        Vector3 roff = camera.ScreenPointToRay(new Vector3(Screen.width, Screen.height)).origin - rorg;
-        roff.x /= sdf.width;
-        roff.y /= sdf.height;
-
+        Vector3 rorg = camera.ScreenPointToRay(Vector3.zero).origin; //bottom left of screen on near clip plane position (world position)
+        Vector3 roff = camera.ScreenPointToRay(new Vector3(Screen.width, Screen.height)).origin - rorg; //diagonal vector from bottom left to top right
+        roff.x /= sdf.width;//divide by adjusted resolution sdf texture width and height. so now its 
+        roff.y /= sdf.height;//quite small isnt it? if the diagonal was 10, and we just divided it by (960x590), its like, microscopic. 
+        //it represents the world space per (diagonal) pixel movement?
         /** Calculate SDF **/
+        //feed box structs to objBuffer in sdfShader
         sdBox[] sdboxes = FindObjectsOfType<sdBox>();
         if (boxes.Length != sdboxes.Length)
         {
@@ -180,7 +189,7 @@ public class RaymarchSimple : MonoBehaviour
 
         tracer.SetVector("CameraOrigin", new Vector2(rorg.x, rorg.y));
         tracer.SetVector("CameraOffset", new Vector2(roff.x, roff.y));
-        
+
         tracer.Dispatch(1, tracerOutput.width / 8, tracerOutput.height / 8, 1);
         tracer.Dispatch(0, tracerOutput.width / 8, tracerOutput.height / 8, 1);
 

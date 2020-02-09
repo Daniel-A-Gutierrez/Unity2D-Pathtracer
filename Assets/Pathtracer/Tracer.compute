@@ -1,7 +1,9 @@
 ﻿// Each #kernel tells which function to compile; you can have many kernels
 #pragma kernel CSMain
-#pragma kernel DirectTrace
+#pragma kernel DirectTrace 
 
+//outputs to tracer result
+//outputs to shadow map
 float DirectWeight;
 float BounceBias;
 float Lerp;
@@ -27,7 +29,7 @@ float2 CameraOffset;
 #define PI 3.14159265359
 
 float seed = 0;
-float rand(float nseed) { return frac(sin(seed + nseed)*43758.5453123); }
+float rand(float nseed) { return frac(sin(seed + nseed)*43758.5453123); }//range -1 to 1?
 
 float2 diffuse(float2 samplePosition, float angle) {
 	float sine, cosine;
@@ -44,8 +46,8 @@ float map(float2 p) {
 }
 
 float4 mapDiffuse(float2 p) {
-	float2 uv = ((p - CameraOrigin) / CameraOffset) / float2(SDFWidth, SDFHeight);
-	return _Diffuse.SampleLevel(sampler_Diffuse, uv, 0);
+	float2 uv = ((p - CameraOrigin) / CameraOffset) / float2(SDFWidth, SDFHeight); //world coordinates to uv coordinates of screen rect for diffuse map
+	return _Diffuse.SampleLevel(sampler_Diffuse, uv, 0);//sample level accepts the LOD level as 3rd param, idk why bother using it here though. 
 }
 
 float3 mapShadow(float2 p) {
@@ -68,12 +70,13 @@ float2 calcNormal(in float2 pos)
 		map(pos + eps.yx).x - map(pos - eps.yx).x);
 	return normalize(nor);
 }
-
-float3 raymarch(float2 ro, float2 rd) {
+//from our original position, case rays in direction rd, at increasing distance, until we hit something or fail. 
+//return the position of the thing we hit and 1.0 to act like a boolean.
+float3 raymarch(float2 ro, float2 rd) { //rd seems to be a random value?
     const int maxstep = 64;
     float t = 0; // current distance traveled along ray
     for (int i = 0; i < maxstep; ++i) {
-        float2 p = ro + rd * t; // World space position of sample
+        float2 p = ro + rd * t; // World space position of sample {to me , seems to be world position + a random cconstant direction * increasing distance.
         float d = map(p);       // Sample of distance field (see map())
 
         // If the sample <= 0, we have hit something (see map()).
@@ -93,10 +96,10 @@ float3 raymarch(float2 ro, float2 rd) {
 [numthreads(8,8,1)]
 void DirectTrace (uint3 id : SV_DispatchThreadID)
 {
-    float2 ro = CameraOrigin + (float2(id.xy) * CameraOffset);
+    float2 ro = CameraOrigin + (float2(id.xy) * CameraOffset); //where am i in world space 
     float4 col = float4(0, 0, 0, 0);
 
-    if(map(ro) < length(CameraOffset) * 1.5) {
+    if(map(ro) < length(CameraOffset) * 1.5) { //if we are within 1 pixel of an object
 		const float nseed = (id.x * 281.487977) + (id.y * 492.384134);
 
 		float2 n = calcNormal(ro.xy);
@@ -105,14 +108,14 @@ void DirectTrace (uint3 id : SV_DispatchThreadID)
 			float3 light = float3(1.0, 1.0, 1.0);
 
 			float r = rand(nseed + (i * 323.3192));
-			float2 R = diffuse(n, (r - 0.5) * PI * 2.0);
+			float2 R = diffuse(n, (r - 0.5) * PI * 2.0); //normal rotated by a random ass angle
 
 			float3 p = raymarch(ro, R);
 			if (p.z < 0.5) { //no hit
 				break;
 			}
 
-			float4 color = mapDiffuse(p.xy);
+			float4 color = mapDiffuse(p.xy); //it seems like we are using alpha to indicate brightness in mapDiffuse
 
 			if (color.a > 0) { //hit light
 				col.rgb += light * color.rgb;
@@ -130,7 +133,7 @@ void DirectTrace (uint3 id : SV_DispatchThreadID)
 [numthreads(8,8,1)]
 void CSMain (uint3 id : SV_DispatchThreadID)
 {
-    float2 ro = CameraOrigin + (float2(id.xy) * CameraOffset);
+    float2 ro = CameraOrigin + (float2(id.xy) * CameraOffset);//world position
     float4 col = float4(0, 0, 0, 0);
 
 	const float nseed = (id.x * 281.487977) + (id.y * 492.384134);
@@ -167,5 +170,5 @@ void CSMain (uint3 id : SV_DispatchThreadID)
 
 	col.a += samples_per_pixel;
 
-	Result[id.xy] = lerp(Result.Load(id.xy) + col, col, Lerp);
+	Result[id.xy] = col;//lerp(Result.Load(id.xy) + col, col, Lerp);
 }
